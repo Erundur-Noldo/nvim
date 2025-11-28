@@ -6,8 +6,9 @@ vim.keymap.set("v", "?", function()
 
    local selection_start = vim.fn.line("v")
    local selection_cur = vim.fn.line(".")
-   if(selection_start > selection_cur) then
-      selection_start, selection_cur = selection_cur, selection_start
+   local selection_end = selection_cur
+   if(selection_start > selection_end) then
+      selection_start, selection_end = selection_end, selection_start
    end
    local to_comment = false -- determined whether we comment everything or uncomment everything
    for line_num = selection_start, selection_cur do
@@ -16,12 +17,18 @@ vim.keymap.set("v", "?", function()
          break
       end
    end
-   for line_num = selection_start, selection_cur do
+   for line_num = selection_start, selection_end do
       if to_comment then
          add_comment(line_num, comment_prefix)
       else
          remove_comment(line_num, comment_prefix)
       end
+   end
+   local col_num = vim.fn.col(".") - 1 -- fucking one-indexing..
+   if to_comment then
+      vim.api.nvim_win_set_cursor(0, {selection_cur, col_num + #comment_prefix})
+   else
+      vim.api.nvim_win_set_cursor(0, {selection_cur, math.max(0, col_num - #comment_prefix)})
    end
 end, { noremap = true })
 
@@ -31,10 +38,13 @@ vim.keymap.set("n", "?", function()
       return
    end
    local line_num = vim.fn.line(".")
+   local col_num = vim.fn.col(".") - 1 -- fucking one-indexing..
    if is_commented(line_num, comment_prefix) then
       remove_comment(line_num, comment_prefix)
+      vim.api.nvim_win_set_cursor(0, {line_num, math.max(0, col_num - #comment_prefix)})
    else
       add_comment(line_num, comment_prefix)
+      vim.api.nvim_win_set_cursor(0, {line_num, col_num + #comment_prefix})
    end
 end, { noremap = true })
 
@@ -67,4 +77,3 @@ function remove_comment(line_num, comment_prefix)
    line = line:gsub("^(%s*)" .. comment_prefix, "%1")
    vim.fn.setline(line_num, line)
 end
-
